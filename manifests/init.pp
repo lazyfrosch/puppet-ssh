@@ -27,6 +27,9 @@ class ssh (
   $ssh_sendenv                         = 'USE_DEFAULTS',
   $ssh_gssapiauthentication            = 'yes',
   $ssh_gssapidelegatecredentials       = undef,
+  $sshd_binary                         = 'USE_DEFAULTS',
+  $sshd_pid_file                       = 'USE_DEFAULTS',
+  $sshd_test_config                    = 'yes',
   $sshd_config_path                    = '/etc/ssh/sshd_config',
   $sshd_config_owner                   = 'root',
   $sshd_config_group                   = 'root',
@@ -121,6 +124,8 @@ class ssh (
       $default_service_hasstatus               = true
       $default_sshd_config_serverkeybits       = '1024'
       $default_sshd_config_hostkey             = [ '/etc/ssh/ssh_host_rsa_key' ]
+      $default_sshd_binary                     = '/usr/sbin/sshd'
+      $default_sshd_pid_file                   = '/var/run/sshd.pid'
     }
     'Suse': {
       $default_packages                        = 'openssh'
@@ -180,6 +185,8 @@ class ssh (
       $default_service_hasstatus               = true
       $default_sshd_config_serverkeybits       = '1024'
       $default_sshd_config_hostkey             = [ '/etc/ssh/ssh_host_rsa_key' ]
+      $default_sshd_binary                     = '/usr/sbin/sshd'
+      $default_sshd_pid_file                   = '/var/run/sshd.pid'
     }
     'Solaris': {
       $default_ssh_config_hash_known_hosts     = undef
@@ -727,6 +734,16 @@ class ssh (
   }
 
   if $manage_service_real {
+    if $sshd_test_config and $sshd_pid_file {
+      exec { 'sshd daemon config test':
+        path      => $::path,
+        user      => 'root',
+        command   => 'sshd -t',
+        onlyif    => "test ! -e '${sshd_pid_file}' || test '${sshd_config_path}' -nt '${sshd_pid_file}'",
+        subscribe => File['sshd_config'],
+      } ~> Service['sshd_service']
+    }
+
     service { 'sshd_service' :
       ensure     => $service_ensure,
       name       => $service_name_real,
